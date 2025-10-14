@@ -126,20 +126,38 @@
       <section class="panel controls" id="controls">
         <h2>Paramètres</h2>
 
-        <div class="row" data-tip="Salaire brut mensuel servant de base au calcul de la cotisation.">
-          <label for="salaireRange">Salaire brut mensuel</label>
+        <div class="row" data-tip="Salaire NET mensuel servant de base. Le BRUT et le SUPER BRUT sont déduits via les pourcentages ci-dessous.">
+          <label for="salaireNetRange">Salaire net mensuel</label>
           <div class="ctrl">
-            <input type="range" id="salaireRange" min="1700" max="20000" step="50" value="3000">
-            <input class="valbox" type="number" id="salaire" min="1700" max="20000" step="50" value="3000">
+            <input type="range" id="salaireNetRange" min="1200" max="15000" step="50" value="2400">
+            <input class="valbox" type="number" id="salaireNet" min="1200" max="15000" step="50" value="2400">
             <span class="unit">€ / mois</span>
           </div>
         </div>
 
-        <div class="row" data-tip="Pourcentage du salaire brut affecté à la cotisation. La cotisation annuelle = salaire × 12 × taux.">
-          <label for="tauxCotRange">Taux de cotisation</label>
+        <div class="row" data-tip="Part du BRUT ponctionnée en cotisations salariales. Exemple courant secteur privé ≈ 22 %.">
+          <label for="chargesSalRange">Charges salariales</label>
           <div class="ctrl">
-            <input type="range" id="tauxCotRange" min="0" max="50" step="0.5" value="10">
-            <input class="valbox" type="number" id="tauxCot" min="0" max="50" step="0.5" value="10">
+            <input type="range" id="chargesSalRange" min="15" max="30" step="0.5" value="22">
+            <input class="valbox" type="number" id="chargesSal" min="15" max="30" step="0.5" value="22">
+            <span class="unit">% du brut</span>
+          </div>
+        </div>
+
+        <div class="row" data-tip="Part du BRUT payée par l’employeur en plus du salaire brut. Exemple courant ≈ 42 %.">
+          <label for="chargesEmpRange">Charges employeur</label>
+          <div class="ctrl">
+            <input type="range" id="chargesEmpRange" min="30" max="55" step="0.5" value="42">
+            <input class="valbox" type="number" id="chargesEmp" min="30" max="55" step="0.5" value="42">
+            <span class="unit">% du brut</span>
+          </div>
+        </div>
+
+        <div class="row" data-tip="Taux appliqué au SUPER BRUT pour estimer la cotisation vers le fonds. Exemple : 25 % du super brut.">
+          <label for="tauxCotSBRange">Taux de cotisation (sur super brut)</label>
+          <div class="ctrl">
+            <input type="range" id="tauxCotSBRange" min="0" max="50" step="0.5" value="25">
+            <input class="valbox" type="number" id="tauxCotSB" min="0" max="50" step="0.5" value="25">
             <span class="unit">%</span>
           </div>
         </div>
@@ -208,9 +226,9 @@
 
         <div class="stats">
           <div class="card"><h3>Capital au terme de la cotisation</h3><p id="capFinCot"></p></div>
+          <div class="card"><h3>Brut mensuel (calculé)</h3><p id="brutCalc"></p></div>
+          <div class="card"><h3>Super brut mensuel (calculé)</h3><p id="superBrutCalc"></p></div>
           <div class="card"><h3>Cotisation annuelle (calculée)</h3><p id="cotisationCalc"></p></div>
-          <div class="card"><h3>Reversement annuel (50%)</h3><p id="annuity"></p></div>
-          <div class="card"><h3>Héritage net estimé</h3><p id="heritageNet"></p></div>
         </div>
 
         <div class="toolbar">
@@ -222,8 +240,10 @@
 
   <script>
     // --- Utilitaires ---
-    const nfEuro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-    const formatEuro = (v) => nfEuro.format(v);
+    const nfEuro0 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+    const nfEuro2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
+    const formatEuro0 = (v) => nfEuro0.format(v);
+    const formatEuro2 = (v) => nfEuro2.format(v);
     const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
     function linkInputs(numberEl, rangeEl) {
@@ -233,19 +253,26 @@
     }
 
     function getParams() {
-      const salaire = parseFloat(document.getElementById('salaire').value); // mensuel brut
-      const tauxCot = parseFloat(document.getElementById('tauxCot').value) / 100;
-      const cotisation = salaire * 12 * tauxCot; // annuelle dérivée
+      const salaireNet = parseFloat(document.getElementById('salaireNet').value); // mensuel net
+      const chargesSal = parseFloat(document.getElementById('chargesSal').value) / 100; // % du brut
+      const chargesEmp = parseFloat(document.getElementById('chargesEmp').value) / 100; // % du brut
+      const tauxCotSB = parseFloat(document.getElementById('tauxCotSB').value) / 100; // % du super brut pour cotisation
+
+      // conversions
+      const salaireBrut = salaireNet / (1 - chargesSal); // brut = net / (1 - charges salariales)
+      const superBrut = salaireBrut * (1 + chargesEmp); // super brut = brut * (1 + charges employeur)
+      const cotisationAnnuelle = superBrut * tauxCotSB * 12; // sur 12 mois
+
       const nCot = parseInt(document.getElementById('dureeCotisation').value, 10);
       const rendement = parseFloat(document.getElementById('rendement').value) / 100; // brut
       const flatTax = parseFloat(document.getElementById('flatTax').value) / 100; // sur gains
       const nRev = parseInt(document.getElementById('dureeReversement').value, 10);
       const fraisSucc = parseFloat(document.getElementById('fraisSuccession').value) / 100;
-      return { salaire, tauxCot, cotisation, nCot, rendement, flatTax, nRev, fraisSucc };
+      return { salaireNet, chargesSal, chargesEmp, tauxCotSB, salaireBrut, superBrut, cotisationAnnuelle, nCot, rendement, flatTax, nRev, fraisSucc };
     }
 
     // --- Modèle ---
-    function simulate({ cotisation, nCot, rendement, flatTax, nRev, fraisSucc }) {
+    function simulate({ cotisationAnnuelle, nCot, rendement, flatTax, nRev, fraisSucc }) {
       const rNet = rendement * (1 - flatTax);
       let capital = 0;
       const capitalSeries = [];
@@ -253,7 +280,7 @@
 
       // Phase 1: accumulation
       for (let y = 0; y < nCot; y++) {
-        capital = (capital + cotisation) * (1 + rNet);
+        capital = (capital + cotisationAnnuelle) * (1 + rNet);
         capitalSeries.push(capital);
         payoutSeries.push(0);
       }
@@ -309,7 +336,7 @@
         // labels Y
         const val = niceMax * (i / gridLines);
         ctx.fillStyle = '#9ca3af'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '12px system-ui';
-        ctx.fillText(formatEuro(val), plotX0 - 8, y);
+        ctx.fillText(formatEuro0(val), plotX0 - 8, y);
       }
 
       // Axe X labels
@@ -343,7 +370,7 @@
       ctx.fillStyle = colorWarn;
       ctx.beginPath(); ctx.arc(xH, yH, 5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#e5e7eb'; ctx.font = '12px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-      ctx.fillText('Héritage net ' + formatEuro(sim.heritageNet), Math.min(xH + 10, plotX1 - 160), yH - 8);
+      ctx.fillText('Héritage net ' + formatEuro0(sim.heritageNet), Math.min(xH + 10, plotX1 - 160), yH - 8);
 
       // Cadres
       ctx.strokeStyle = 'rgba(148,163,184,0.35)';
@@ -371,8 +398,10 @@
     }
 
     // --- Liaison Inputs ---
-    linkInputs(salaire, salaireRange);
-    linkInputs(tauxCot, tauxCotRange);
+    linkInputs(salaireNet, salaireNetRange);
+    linkInputs(chargesSal, chargesSalRange);
+    linkInputs(chargesEmp, chargesEmpRange);
+    linkInputs(tauxCotSB, tauxCotSBRange);
     linkInputs(dureeCotisation, dureeCotisationRange);
     linkInputs(rendement, rendementRange);
     linkInputs(flatTax, flatTaxRange);
@@ -384,13 +413,20 @@
       const yearsTotal = p.nCot + p.nRev;
       const yl = document.getElementById('yearsLabel');
       if (yl) yl.textContent = `${yearsTotal} ans simulés`;
-      const sim = simulate(p);
+      const sim = simulate({
+        cotisationAnnuelle: p.cotisationAnnuelle,
+        nCot: p.nCot,
+        rendement: p.rendement,
+        flatTax: p.flatTax,
+        nRev: p.nRev,
+        fraisSucc: p.fraisSucc
+      });
 
       // Mettre à jour stats
-      document.getElementById('capFinCot').textContent = formatEuro(sim.capAtRetire);
-      document.getElementById('cotisationCalc').textContent = formatEuro(p.cotisation) + ' / an';
-      document.getElementById('annuity').textContent = formatEuro(sim.annualPayout) + ' / an';
-      document.getElementById('heritageNet').textContent = formatEuro(sim.heritageNet);
+      document.getElementById('capFinCot').textContent = formatEuro0(sim.capAtRetire);
+      document.getElementById('brutCalc').textContent = formatEuro2(p.salaireBrut) + ' / mois';
+      document.getElementById('superBrutCalc').textContent = formatEuro2(p.superBrut) + ' / mois';
+      document.getElementById('cotisationCalc').textContent = formatEuro0(p.cotisationAnnuelle) + ' / an';
 
       draw(sim, yearsTotal);
     }
@@ -406,7 +442,8 @@
     // Reset (dans le panneau paramètres)
     document.getElementById('resetBtn').addEventListener('click', () => {
       const defaults = {
-        salaire: 3000, tauxCot: 10, dureeCotisation: 30, rendement: 4, flatTax: 30,
+        salaireNet: 2400, chargesSal: 22, chargesEmp: 42, tauxCotSB: 25,
+        dureeCotisation: 30, rendement: 4, flatTax: 30,
         dureeReversement: 20, fraisSuccession: 20
       };
       for (const [k,v] of Object.entries(defaults)){
@@ -430,7 +467,7 @@
       console.group('%cTests simulateur','color:#22d3ee');
       try{
         // Test 1: croissance positive pendant accumulation
-        const p1 = { cotisation: 6000, nCot: 10, rendement: 0.04, flatTax: 0.30, nRev: 10, fraisSucc: 0.20 };
+        const p1 = { cotisationAnnuelle: 6000, nCot: 10, rendement: 0.04, flatTax: 0.30, nRev: 10, fraisSucc: 0.20 };
         const s1 = simulate(p1);
         let monotone = true;
         for(let i=1;i<p1.nCot;i++){ if(!(s1.capitalSeries[i] > s1.capitalSeries[i-1])) { monotone=false; break; } }
@@ -445,7 +482,7 @@
         console.assert(s1.heritageNet < s1.heritageBrut, 'Héritage net doit être inférieur à brut quand frais > 0');
 
         // Test 4: cas bord : rendement 0, flatTax 0
-        const p2 = { cotisation: 1000, nCot: 2, rendement: 0, flatTax: 0, nRev: 1, fraisSucc: 0 };
+        const p2 = { cotisationAnnuelle: 1000, nCot: 2, rendement: 0, flatTax: 0, nRev: 1, fraisSucc: 0 };
         const s2 = simulate(p2);
         console.assert(approxEqual(s2.capAtRetire, 2000, 1e-9), 'Sans rendement: capital = somme des cotisations');
         console.assert(approxEqual(s2.heritageBrut, 1000, 1e-9), 'Après reversement 50% d\'un capital 2000 et 1 an de rev: reste 1000');
