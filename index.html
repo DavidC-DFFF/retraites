@@ -53,7 +53,7 @@
     /* ligne de contrôle: slider + valeur */
     .ctrl { display:grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items:center; }
     .ctrl input[type=range] { width: 100%; }
-    .valbox { width: 110px; background: var(--panel); border: 1px solid #334155; color: var(--text); padding: 8px 10px; border-radius: 10px; }
+    .valbox { width: 120px; background: var(--panel); border: 1px solid #334155; color: var(--text); padding: 8px 10px; border-radius: 10px; }
     .unit { font-size: 12px; color: var(--muted); }
 
     /* Tooltip (info flottante au survol) */
@@ -126,12 +126,21 @@
       <section class="panel controls" id="controls">
         <h2>Paramètres</h2>
 
-        <div class="row" data-tip="Montant versé chaque année pendant la période de cotisation.">
-          <label for="cotisationRange">Cotisation annuelle</label>
+        <div class="row" data-tip="Salaire brut mensuel servant de base au calcul de la cotisation.">
+          <label for="salaireRange">Salaire brut mensuel</label>
           <div class="ctrl">
-            <input type="range" id="cotisationRange" min="1000" max="30000" step="500" value="6000">
-            <input class="valbox" type="number" id="cotisation" min="1000" max="30000" step="500" value="6000">
-            <span class="unit">€</span>
+            <input type="range" id="salaireRange" min="1700" max="20000" step="50" value="3000">
+            <input class="valbox" type="number" id="salaire" min="1700" max="20000" step="50" value="3000">
+            <span class="unit">€ / mois</span>
+          </div>
+        </div>
+
+        <div class="row" data-tip="Pourcentage du salaire brut affecté à la cotisation. La cotisation annuelle = salaire × 12 × taux.">
+          <label for="tauxCotRange">Taux de cotisation</label>
+          <div class="ctrl">
+            <input type="range" id="tauxCotRange" min="0" max="50" step="0.5" value="10">
+            <input class="valbox" type="number" id="tauxCot" min="0" max="50" step="0.5" value="10">
+            <span class="unit">%</span>
           </div>
         </div>
 
@@ -199,8 +208,8 @@
 
         <div class="stats">
           <div class="card"><h3>Capital au terme de la cotisation</h3><p id="capFinCot"></p></div>
+          <div class="card"><h3>Cotisation annuelle (calculée)</h3><p id="cotisationCalc"></p></div>
           <div class="card"><h3>Reversement annuel (50%)</h3><p id="annuity"></p></div>
-          <div class="card"><h3>Héritage brut (avant frais)</h3><p id="heritageBrut"></p></div>
           <div class="card"><h3>Héritage net estimé</h3><p id="heritageNet"></p></div>
         </div>
 
@@ -215,6 +224,7 @@
     // --- Utilitaires ---
     const nfEuro = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
     const formatEuro = (v) => nfEuro.format(v);
+    const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
     function linkInputs(numberEl, rangeEl) {
       const sync = (src, dst) => () => { dst.value = src.value; onChange(); };
@@ -223,13 +233,15 @@
     }
 
     function getParams() {
-      const cotisation = parseFloat(document.getElementById('cotisation').value);
+      const salaire = parseFloat(document.getElementById('salaire').value); // mensuel brut
+      const tauxCot = parseFloat(document.getElementById('tauxCot').value) / 100;
+      const cotisation = salaire * 12 * tauxCot; // annuelle dérivée
       const nCot = parseInt(document.getElementById('dureeCotisation').value, 10);
       const rendement = parseFloat(document.getElementById('rendement').value) / 100; // brut
       const flatTax = parseFloat(document.getElementById('flatTax').value) / 100; // sur gains
       const nRev = parseInt(document.getElementById('dureeReversement').value, 10);
       const fraisSucc = parseFloat(document.getElementById('fraisSuccession').value) / 100;
-      return { cotisation, nCot, rendement, flatTax, nRev, fraisSucc };
+      return { salaire, tauxCot, cotisation, nCot, rendement, flatTax, nRev, fraisSucc };
     }
 
     // --- Modèle ---
@@ -253,7 +265,6 @@
       // Phase 2: reversement linéaire de 50 % + capital restant continue à croître
       let cumulPayout = 0;
       for (let y = 0; y < nRev; y++) {
-        // Verser d'abord (sur la part totale), puis croissance du reliquat
         const payout = Math.min(annualPayout, amountToPayout - cumulPayout);
         capital -= payout;
         cumulPayout += payout;
@@ -316,15 +327,20 @@
       const xScale = (i) => plotX0 + (i / totalYears) * (plotX1 - plotX0);
       const yScale = (v) => plotY1 - (v / niceMax) * (plotY1 - plotY0);
 
+      // Couleurs résolues (Canvas ne comprend pas var(--...))
+      const colorCapital = cssVar('--line-1');
+      const colorPayouts = cssVar('--line-2');
+      const colorWarn = cssVar('--warn');
+
       // Tracer capital (ligne 1)
-      drawLine(sim.capitalSeries, xScale, yScale, 'var(--line-1)');
+      drawLine(sim.capitalSeries, xScale, yScale, colorCapital);
       // Tracer reversements cumulés (ligne 2)
-      drawLine(sim.payoutSeries, xScale, yScale, 'var(--line-2)');
+      drawLine(sim.payoutSeries, xScale, yScale, colorPayouts);
 
       // Marque héritage net (point + étiquette)
       const xH = xScale(sim.capitalSeries.length - 1);
       const yH = yScale(sim.heritageNet);
-      ctx.fillStyle = 'var(--warn)';
+      ctx.fillStyle = colorWarn;
       ctx.beginPath(); ctx.arc(xH, yH, 5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#e5e7eb'; ctx.font = '12px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
       ctx.fillText('Héritage net ' + formatEuro(sim.heritageNet), Math.min(xH + 10, plotX1 - 160), yH - 8);
@@ -355,7 +371,8 @@
     }
 
     // --- Liaison Inputs ---
-    linkInputs(cotisation, cotisationRange);
+    linkInputs(salaire, salaireRange);
+    linkInputs(tauxCot, tauxCotRange);
     linkInputs(dureeCotisation, dureeCotisationRange);
     linkInputs(rendement, rendementRange);
     linkInputs(flatTax, flatTaxRange);
@@ -371,8 +388,8 @@
 
       // Mettre à jour stats
       document.getElementById('capFinCot').textContent = formatEuro(sim.capAtRetire);
+      document.getElementById('cotisationCalc').textContent = formatEuro(p.cotisation) + ' / an';
       document.getElementById('annuity').textContent = formatEuro(sim.annualPayout) + ' / an';
-      document.getElementById('heritageBrut').textContent = formatEuro(sim.heritageBrut);
       document.getElementById('heritageNet').textContent = formatEuro(sim.heritageNet);
 
       draw(sim, yearsTotal);
@@ -389,7 +406,7 @@
     // Reset (dans le panneau paramètres)
     document.getElementById('resetBtn').addEventListener('click', () => {
       const defaults = {
-        cotisation: 6000, dureeCotisation: 30, rendement: 4, flatTax: 30,
+        salaire: 3000, tauxCot: 10, dureeCotisation: 30, rendement: 4, flatTax: 30,
         dureeReversement: 20, fraisSuccession: 20
       };
       for (const [k,v] of Object.entries(defaults)){
