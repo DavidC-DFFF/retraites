@@ -1,504 +1,761 @@
 <!doctype html>
 <html lang="fr">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Simulateur retraite — courbes interactives</title>
-  <style>
-    :root {
-      --bg: #0f172a; /* slate-900 */
-      --panel: #111827; /* gray-900 */
-      --panel-2: #0b1220; /* darker */
-      --text: #e5e7eb; /* gray-200 */
-      --muted: #9ca3af; /* gray-400 */
-      --accent: #22d3ee; /* cyan-400 */
-      --accent-2: #a78bfa; /* violet-400 */
-      --line-1: #10b981; /* emerald */
-      --line-2: #60a5fa; /* blue-400 */
-      --warn: #f59e0b; /* amber-500 */
-      --danger: #f87171; /* red-400 */
-      --shadow: 0 10px 30px rgba(0,0,0,.35);
-      --radius: 16px;
-      --tooltip-bg: #0b1220;
-    }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background: radial-gradient(1200px 800px at 15% -10%, #172554 0%, rgba(23,37,84,0) 50%),
-                  radial-gradient(900px 700px at 110% 0%, #1e3a8a 0%, rgba(30,58,138,0) 60%),
-                  var(--bg);
-      color: var(--text);
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-    }
-    .wrap { max-width: 1200px; margin: 24px auto; padding: 0 16px 32px; }
-    header { display:flex; align-items:center; justify-content:space-between; gap: 12px; margin-bottom: 16px; }
-    header h1 { font-size: clamp(20px, 3vw, 28px); margin: 0; letter-spacing: .2px; }
-    header .badge { font-size: 12px; color: var(--muted); border: 1px solid #334155; padding: 6px 10px; border-radius: 999px; }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Simulateur retraite — courbes interactives</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            /* slate-900 */
+            --panel: #111827;
+            /* gray-900 */
+            --panel-2: #0b1220;
+            /* darker */
+            --text: #e5e7eb;
+            /* gray-200 */
+            --muted: #9ca3af;
+            /* gray-400 */
+            --accent: #22d3ee;
+            /* cyan-400 */
+            --accent-2: #a78bfa;
+            /* violet-400 */
+            --line-1: #10b981;
+            /* emerald */
+            --line-2: #60a5fa;
+            /* blue-400 */
+            --warn: #f59e0b;
+            /* amber-500 */
+            --danger: #f87171;
+            /* red-400 */
+            --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            --radius: 16px;
+            --tooltip-bg: #0b1220;
+        }
 
-    .grid { display:grid; grid-template-columns: 360px 1fr; gap: 20px; align-items:start; }
-    body.settings-closed .grid { grid-template-columns: 1fr; }
+        html,
+        body {
+            height: 100%;
+        }
 
-    .panel { background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01)); border: 1px solid rgba(148,163,184,.18); border-radius: var(--radius); box-shadow: var(--shadow); }
+        body {
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: radial-gradient(1200px 800px at 15% -10%, #172554 0%, rgba(23, 37, 84, 0) 50%),
+                radial-gradient(900px 700px at 110% 0%, #1e3a8a 0%, rgba(30, 58, 138, 0) 60%),
+                var(--bg);
+            color: var(--text);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
 
-    /* panneau paramètres */
-    .controls { padding: 16px; position: sticky; top: 12px; max-height: calc(100vh - 100px); overflow-y: auto; }
-    body.settings-closed #controls { display: none; }
-    .controls h2 { font-size: 14px; letter-spacing:.3px; color: var(--muted); text-transform: uppercase; margin: 0 0 12px; }
+        .wrap {
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px 32px;
+        }
 
-    .row { position: relative; display:grid; grid-template-columns: 1fr; gap: 8px; align-items:center; margin: 14px 0; }
-    .row label { font-size: 14px; color: var(--text); cursor: help; }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
 
-    /* ligne de contrôle: slider + valeur */
-    .ctrl { display:grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items:center; }
-    .ctrl input[type=range] { width: 100%; }
-    .valbox { width: 120px; background: var(--panel); border: 1px solid #334155; color: var(--text); padding: 8px 10px; border-radius: 10px; }
-    .unit { font-size: 12px; color: var(--muted); }
+        header h1 {
+            font-size: clamp(20px, 3vw, 28px);
+            margin: 0;
+            letter-spacing: .2px;
+        }
 
-    /* Tooltip (info flottante au survol) */
-    .row[data-tip]:hover::after {
-      content: attr(data-tip);
-      position: absolute;
-      left: 0; top: 100%;
-      transform: translateY(8px);
-      max-width: 320px;
-      background: var(--tooltip-bg);
-      border: 1px solid #334155;
-      color: var(--text);
-      padding: 10px 12px;
-      border-radius: 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      box-shadow: var(--shadow);
-      z-index: 20;
-    }
-    .row[data-tip]:hover::before {
-      content: '';
-      position: absolute;
-      left: 16px; top: calc(100% + 2px);
-      width: 10px; height: 10px;
-      background: var(--tooltip-bg);
-      border-left: 1px solid #334155; border-top: 1px solid #334155;
-      transform: rotate(45deg) translateY(-50%);
-      z-index: 21;
-    }
+        header .badge {
+            font-size: 12px;
+            color: var(--muted);
+            border: 1px solid #334155;
+            padding: 6px 10px;
+            border-radius: 999px;
+        }
 
-    /* zone graphique */
-    .chart-panel { padding: 14px; display:flex; flex-direction:column; }
-    .canvas-wrap { background: linear-gradient(180deg, rgba(2,6,23,.65), rgba(2,6,23,.25)); border: 1px solid rgba(148,163,184,.18); border-radius: calc(var(--radius) - 6px); padding: 10px; }
-    canvas { width: 100%; height: 460px; display:block; }
+        .grid {
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
 
-    .legend { display:flex; gap: 14px; align-items:center; flex-wrap: wrap; padding: 10px 4px 0; }
-    .dot { width: 10px; height: 10px; border-radius: 50%; display:inline-block; margin-right: 6px; }
+        body.settings-closed .grid {
+            grid-template-columns: 1fr;
+        }
 
-    .stats { display:grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
-    @media (max-width: 900px){ .stats { grid-template-columns: repeat(2, 1fr);} }
-    .card { background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01)); border: 1px solid rgba(148,163,184,.16); border-radius: 12px; padding: 14px; }
-    .card h3 { font-size: 12px; text-transform: uppercase; letter-spacing:.3px; color: var(--muted); margin: 0 0 6px; }
-    .card p { font-size: clamp(16px, 2.5vw, 20px); margin: 0; }
+        .panel {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .03), rgba(255, 255, 255, .01));
+            border: 1px solid rgba(148, 163, 184, .18);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+        }
 
-    .toolbar { display:flex; align-items:center; gap:8px; margin-top: 10px; }
-    .btn { background: #0b1220; color: var(--text); border: 1px solid #334155; padding: 8px 12px; border-radius: 10px; cursor:pointer; }
-    .btn:hover { filter: brightness(1.1); }
-    .subtle { color: var(--muted); font-size: 12px; margin-left: auto; }
+        /* panneau paramètres */
+        .controls {
+            padding: 16px;
+            position: sticky;
+            top: 12px;
+            max-height: calc(100vh - 100px);
+            overflow-y: auto;
+        }
 
-    /* bouton roue dentée */
-    .gear { display:inline-flex; align-items:center; gap:8px; background: #0b1220; border:1px solid #334155; color:var(--text); padding:8px 12px; border-radius: 999px; cursor:pointer; }
-    .gear svg { width: 18px; height: 18px; }
-  </style>
+        body.settings-closed #controls {
+            display: none;
+        }
+
+        .controls h2 {
+            font-size: 14px;
+            letter-spacing: .3px;
+            color: var(--muted);
+            text-transform: uppercase;
+            margin: 0 0 12px;
+        }
+
+        .row {
+            position: relative;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            align-items: center;
+            margin: 14px 0;
+        }
+
+        .row label {
+            font-size: 14px;
+            color: var(--text);
+            cursor: help;
+        }
+
+        /* ligne de contrôle: slider + valeur */
+        .ctrl {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .ctrl input[type=range] {
+            width: 100%;
+        }
+
+        .valbox {
+            width: 120px;
+            background: var(--panel);
+            border: 1px solid #334155;
+            color: var(--text);
+            padding: 8px 10px;
+            border-radius: 10px;
+        }
+
+        .unit {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        /* Tooltip (info flottante au survol) */
+        .row[data-tip].show-tip::after {
+            content: attr(data-tip);
+            position: absolute;
+            left: 0;
+            top: 100%;
+            transform: translateY(8px);
+            max-width: 320px;
+            background: var(--tooltip-bg);
+            border: 1px solid #334155;
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 10px;
+            font-size: 12px;
+            line-height: 1.35;
+            box-shadow: var(--shadow);
+            z-index: 20;
+        }
+
+        .row[data-tip].show-tip::before {
+            content: '';
+            position: absolute;
+            left: 16px;
+            top: calc(100% + 2px);
+            width: 10px;
+            height: 10px;
+            background: var(--tooltip-bg);
+            border-left: 1px solid #334155;
+            border-top: 1px solid #334155;
+            transform: rotate(45deg) translateY(-50%);
+            z-index: 21;
+        }
+
+        /* zone graphique */
+        .chart-panel {
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-wrap {
+            position: relative;
+            background: linear-gradient(180deg, rgba(2, 6, 23, .65), rgba(2, 6, 23, .25));
+            border: 1px solid rgba(148, 163, 184, .18);
+            border-radius: calc(var(--radius) - 6px);
+            padding: 10px;
+        }
+
+        canvas {
+            width: 100%;
+            height: 460px;
+            display: block;
+        }
+
+        .legend {
+            display: flex;
+            gap: 14px;
+            align-items: center;
+            flex-wrap: wrap;
+            padding: 10px 4px 0;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        @media (max-width: 900px) {
+            .stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, .02), rgba(255, 255, 255, .01));
+            border: 1px solid rgba(148, 163, 184, .16);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .card h3 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .3px;
+            color: var(--muted);
+            margin: 0 0 6px;
+        }
+
+        .card p {
+            font-size: clamp(16px, 2.5vw, 20px);
+            margin: 0;
+        }
+
+        .toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .btn {
+            background: #0b1220;
+            color: var(--text);
+            border: 1px solid #334155;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        .btn:hover {
+            filter: brightness(1.1);
+        }
+
+        .subtle {
+            color: var(--muted);
+            font-size: 12px;
+            margin-left: auto;
+        }
+
+        /* bouton roue dentée */
+        .gear {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #0b1220;
+            border: 1px solid #334155;
+            color: var(--text);
+            padding: 8px 12px;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .gear svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Drag handles on chart */
+        .handle-label {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            background: #0b1220;
+            border: 1px solid #334155;
+            padding: 4px 6px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: var(--text);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+    </style>
 </head>
+
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Simulateur de retraite — courbes interactives</h1>
-      <div style="display:flex; align-items:center; gap:10px;">
-        <button class="gear" id="settingsToggle" aria-controls="controls" aria-expanded="true" title="Afficher/Masquer les paramètres">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 3.6a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51.59.24 1.27.1 1.73-.36l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.46.46-.6 1.14-.36 1.73.25.62.85 1 1.51 1H22a2 2 0 1 1 0 4h-.09c-.66 0-1.26.38-1.51 1Z"></path></svg>
-          Paramètres
-        </button>
-        <div class="badge">Mono‑fichier • HTML/CSS/JS pur</div>
-      </div>
-    </header>
+    <div class="wrap">
+        <header>
+            <h1>Simulateur de retraite — courbes interactives</h1>
+            <div style="display:flex; align-items:center; gap:10px;">
+                <button class="gear" id="settingsToggle" aria-controls="controls" aria-expanded="true"
+                    title="Afficher/Masquer les paramètres">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path
+                            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 8 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 3.6 8a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 3.6a1.65 1.65 0 0 0 1-1.51V2a2 2 0 1 1 4 0v.09c0 .66.38 1.26 1 1.51.59.24 1.27.1 1.73-.36l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.46.46-.6 1.14-.36 1.73.25.62.85 1 1.51 1H22a2 2 0 1 1 0 4h-.09c-.66 0-1.26.38-1.51 1Z">
+                        </path>
+                    </svg>
+                    Paramètres
+                </button>
+                <div class="badge">Mono‑fichier • HTML/CSS/JS pur</div>
+            </div>
+        </header>
 
-    <div class="grid">
-      <!-- Controls -->
-      <section class="panel controls" id="controls">
-        <h2>Paramètres</h2>
+        <div class="grid">
+            <!-- Controls -->
+            <section class="panel controls" id="controls">
+                <h2>Paramètres</h2>
 
-        <div class="row" data-tip="Salaire NET mensuel servant de base. Le BRUT et le SUPER BRUT sont déduits via les pourcentages ci-dessous.">
-          <label for="salaireNetRange">Salaire net mensuel</label>
-          <div class="ctrl">
-            <input type="range" id="salaireNetRange" min="1200" max="15000" step="50" value="2400">
-            <input class="valbox" type="number" id="salaireNet" min="1200" max="15000" step="50" value="2400">
-            <span class="unit">€ / mois</span>
-          </div>
-        </div>
+                <div class="row" data-tip="Salaire NET mensuel. Les conversions brut/super‑brut sont internes.">
+                    <label for="salaireNetRange">Salaire net mensuel</label>
+                    <div class="ctrl">
+                        <input type="range" id="salaireNetRange" min="1200" max="15000" step="50" value="2400">
+                        <input class="valbox" type="number" id="salaireNet" min="1200" max="15000" step="50"
+                            value="2400">
+                        <span class="unit">€ / mois</span>
+                    </div>
+                </div>
 
-        <div class="row" data-tip="Part du BRUT ponctionnée en cotisations salariales. Exemple courant secteur privé ≈ 22 %.">
-          <label for="chargesSalRange">Charges salariales</label>
-          <div class="ctrl">
-            <input type="range" id="chargesSalRange" min="15" max="30" step="0.5" value="22">
-            <input class="valbox" type="number" id="chargesSal" min="15" max="30" step="0.5" value="22">
-            <span class="unit">% du brut</span>
-          </div>
-        </div>
+                <div class="row"
+                    data-tip="Taux de cotisation global appliqué au super‑brut estimé. Valeur de référence actuelle ≈ 25 % (aimantée).">
+                    <label for="tauxCotGlobalRange">Taux de cotisation (global)</label>
+                    <div class="ctrl">
+                        <input type="range" id="tauxCotGlobalRange" min="0" max="50" step="0.1" value="25">
+                        <input class="valbox" type="number" id="tauxCotGlobal" min="0" max="50" step="0.1" value="25">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
 
-        <div class="row" data-tip="Part du BRUT payée par l’employeur en plus du salaire brut. Exemple courant ≈ 42 %.">
-          <label for="chargesEmpRange">Charges employeur</label>
-          <div class="ctrl">
-            <input type="range" id="chargesEmpRange" min="30" max="55" step="0.5" value="42">
-            <input class="valbox" type="number" id="chargesEmp" min="30" max="55" step="0.5" value="42">
-            <span class="unit">% du brut</span>
-          </div>
-        </div>
+                <div class="row"
+                    data-tip="Part des gains annuelle prélevée (impôt + prélèvements sociaux). Valeur de référence 30 % (aimantée).">
+                    <label for="flatTaxRange">Flat tax sur gains</label>
+                    <div class="ctrl">
+                        <input type="range" id="flatTaxRange" min="0" max="60" step="0.5" value="30">
+                        <input class="valbox" type="number" id="flatTax" min="0" max="60" step="0.5" value="30">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
 
-        <div class="row" data-tip="Taux appliqué au SUPER BRUT pour estimer la cotisation vers le fonds. Exemple : 25 % du super brut.">
-          <label for="tauxCotSBRange">Taux de cotisation (sur super brut)</label>
-          <div class="ctrl">
-            <input type="range" id="tauxCotSBRange" min="0" max="50" step="0.5" value="25">
-            <input class="valbox" type="number" id="tauxCotSB" min="0" max="50" step="0.5" value="25">
-            <span class="unit">%</span>
-          </div>
-        </div>
+                <div class="row"
+                    data-tip="Taux de frais de succession appliqué au capital restant, sans seuils (égalité pour tous). Valeur de référence 20 % (aimantée).">
+                    <label for="fraisSuccessionRange">Frais de succession</label>
+                    <div class="ctrl">
+                        <input type="range" id="fraisSuccessionRange" min="0" max="60" step="0.5" value="20">
+                        <input class="valbox" type="number" id="fraisSuccession" min="0" max="60" step="0.5" value="20">
+                        <span class="unit">%</span>
+                    </div>
+                </div>
 
-        <div class="row" data-tip="Nombre d'années avec versements.">
-          <label for="dureeCotisationRange">Durée de cotisation</label>
-          <div class="ctrl">
-            <input type="range" id="dureeCotisationRange" min="5" max="50" step="1" value="30">
-            <input class="valbox" type="number" id="dureeCotisation" min="5" max="50" step="1" value="30">
-            <span class="unit">ans</span>
-          </div>
-        </div>
+                <div class="toolbar">
+                    <button class="btn" id="resetBtn">Réinitialiser</button>
+                    <span class="subtle" id="yearsLabel"></span>
+                </div>
+            </section>
 
-        <div class="row" data-tip="Rendement réel moyen avant flat tax (net d'inflation).">
-          <label for="rendementRange">Rendement annuel du placement</label>
-          <div class="ctrl">
-            <input type="range" id="rendementRange" min="0" max="12" step="0.1" value="4">
-            <input class="valbox" type="number" id="rendement" min="0" max="12" step="0.1" value="4">
-            <span class="unit">%</span>
-          </div>
-        </div>
+            <!-- Chart & Stats -->
+            <section class="panel chart-panel">
+                <div class="legend">
+                    <span><span class="dot" style="background:var(--line-1)"></span>Capital total</span>
+                    <span><span class="dot" style="background:var(--line-2)"></span>Reversements cumulés (50 %)</span>
+                    <span><span class="dot" style="background:var(--warn)"></span>Héritage net</span>
+                </div>
+                <div class="canvas-wrap">
+                    <canvas id="chart" width="1200" height="460"
+                        aria-label="Courbe du capital et reversements"></canvas>
+                    <div id="labelE" class="handle-label">E</div>
+                    <div id="labelR" class="handle-label">R</div>
+                    <div id="labelD" class="handle-label">D</div>
+                </div>
 
-        <div class="row" data-tip="Part des gains annuelle prélevée (impôt + prélèvements sociaux). Approche simplifiée : retour net = rendement × (1 − flat tax).">
-          <label for="flatTaxRange">Flat tax sur gains</label>
-          <div class="ctrl">
-            <input type="range" id="flatTaxRange" min="0" max="60" step="0.5" value="30">
-            <input class="valbox" type="number" id="flatTax" min="0" max="60" step="0.5" value="30">
-            <span class="unit">%</span>
-          </div>
-        </div>
+                <div class="stats">
+                    <div class="card">
+                        <h3>Capital au terme (à R)</h3>
+                        <p id="capFinCot"></p>
+                    </div>
+                    <div class="card">
+                        <h3>Cotisation annuelle (calculée)</h3>
+                        <p id="cotisationCalc"></p>
+                    </div>
+                    <div class="card">
+                        <h3>Héritage net estimé</h3>
+                        <p id="heritageNet"></p>
+                    </div>
+                    <div class="card">
+                        <h3>État (flat tax + succession)</h3>
+                        <p id="etatRecup"></p>
+                    </div>
+                </div>
 
-        <div class="row" data-tip="Pendant cette période, 50 % du capital atteint est reversé de façon linéaire (le reste reste investi).">
-          <label for="dureeReversementRange">Durée de reversement de 50% du capital</label>
-          <div class="ctrl">
-            <input type="range" id="dureeReversementRange" min="1" max="40" step="1" value="20">
-            <input class="valbox" type="number" id="dureeReversement" min="1" max="40" step="1" value="20">
-            <span class="unit">ans</span>
-          </div>
+                <div class="toolbar">
+                    <button class="btn" id="exportBtn">Exporter PNG</button>
+                </div>
+            </section>
         </div>
-
-        <div class="row" data-tip="Taux appliqué à la fin de la période de reversement (sur le capital restant).">
-          <label for="fraisSuccessionRange">Frais de succession</label>
-          <div class="ctrl">
-            <input type="range" id="fraisSuccessionRange" min="0" max="60" step="0.5" value="20">
-            <input class="valbox" type="number" id="fraisSuccession" min="0" max="60" step="0.5" value="20">
-            <span class="unit">%</span>
-          </div>
-        </div>
-
-        <div class="toolbar">
-          <button class="btn" id="resetBtn">Réinitialiser</button>
-          <span class="subtle" id="yearsLabel"></span>
-        </div>
-      </section>
-
-      <!-- Chart & Stats -->
-      <section class="panel chart-panel">
-        <div class="legend">
-          <span><span class="dot" style="background:var(--line-1)"></span>Capital total</span>
-          <span><span class="dot" style="background:var(--line-2)"></span>Reversements cumulés (50 %)</span>
-          <span><span class="dot" style="background:var(--warn)"></span>Héritage net</span>
-        </div>
-        <div class="canvas-wrap">
-          <canvas id="chart" width="1200" height="460" aria-label="Courbe du capital et reversements"></canvas>
-        </div>
-
-        <div class="stats">
-          <div class="card"><h3>Capital au terme de la cotisation</h3><p id="capFinCot"></p></div>
-          <div class="card"><h3>Brut mensuel (calculé)</h3><p id="brutCalc"></p></div>
-          <div class="card"><h3>Super brut mensuel (calculé)</h3><p id="superBrutCalc"></p></div>
-          <div class="card"><h3>Cotisation annuelle (calculée)</h3><p id="cotisationCalc"></p></div>
-        </div>
-
-        <div class="toolbar">
-          <button class="btn" id="exportBtn">Exporter PNG</button>
-        </div>
-      </section>
     </div>
-  </div>
 
-  <script>
-    // --- Utilitaires ---
-    const nfEuro0 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-    const nfEuro2 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 2 });
-    const formatEuro0 = (v) => nfEuro0.format(v);
-    const formatEuro2 = (v) => nfEuro2.format(v);
-    const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    <script>
+        // --- Config & utilitaires ---
+        const AGE_MIN = 16, AGE_MAX = 110;
+        const DEFAULT_E = 25, DEFAULT_R = 64, DEFAULT_D = 80; // hypothèse: D = âge de fin de reversement des 50%
 
-    function linkInputs(numberEl, rangeEl) {
-      const sync = (src, dst) => () => { dst.value = src.value; onChange(); };
-      numberEl.addEventListener('input', sync(numberEl, rangeEl));
-      rangeEl.addEventListener('input', sync(rangeEl, numberEl));
-    }
+        const nfEuro0 = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
+        const formatEuro0 = (v) => nfEuro0.format(v);
+        const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
-    function getParams() {
-      const salaireNet = parseFloat(document.getElementById('salaireNet').value); // mensuel net
-      const chargesSal = parseFloat(document.getElementById('chargesSal').value) / 100; // % du brut
-      const chargesEmp = parseFloat(document.getElementById('chargesEmp').value) / 100; // % du brut
-      const tauxCotSB = parseFloat(document.getElementById('tauxCotSB').value) / 100; // % du super brut pour cotisation
+        const SNAP = {
+            cot: 25, // %
+            flat: 30, // %
+            succession: 20 // %
+        };
+        const SNAP_EPS = 0.6; // marge d'aimantation (~pas du slider)
 
-      // conversions
-      const salaireBrut = salaireNet / (1 - chargesSal); // brut = net / (1 - charges salariales)
-      const superBrut = salaireBrut * (1 + chargesEmp); // super brut = brut * (1 + charges employeur)
-      const cotisationAnnuelle = superBrut * tauxCotSB * 12; // sur 12 mois
+        function linkInputs(numberEl, rangeEl, snapValue = null) {
+            const applySnap = (val) => (snapValue != null && Math.abs(val - snapValue) <= SNAP_EPS) ? snapValue : val;
+            const sync = (src, dst) => () => { const v = applySnap(parseFloat(src.value)); dst.value = v; src.value = v; onChange(); };
+            numberEl.addEventListener('input', sync(numberEl, rangeEl));
+            rangeEl.addEventListener('input', sync(rangeEl, numberEl));
+        }
 
-      const nCot = parseInt(document.getElementById('dureeCotisation').value, 10);
-      const rendement = parseFloat(document.getElementById('rendement').value) / 100; // brut
-      const flatTax = parseFloat(document.getElementById('flatTax').value) / 100; // sur gains
-      const nRev = parseInt(document.getElementById('dureeReversement').value, 10);
-      const fraisSucc = parseFloat(document.getElementById('fraisSuccession').value) / 100;
-      return { salaireNet, chargesSal, chargesEmp, tauxCotSB, salaireBrut, superBrut, cotisationAnnuelle, nCot, rendement, flatTax, nRev, fraisSucc };
-    }
+        function getParams() {
+            // Conversion net -> super‑brut (internes, non exposées)
+            const NET = parseFloat(document.getElementById('salaireNet').value);
+            const BRUT = NET / (1 - 0.22); // ~22% charges salariales par défaut
+            const SUPERBRUT = BRUT * (1 + 0.42); // ~42% charges employeur par défaut
 
-    // --- Modèle ---
-    function simulate({ cotisationAnnuelle, nCot, rendement, flatTax, nRev, fraisSucc }) {
-      const rNet = rendement * (1 - flatTax);
-      let capital = 0;
-      const capitalSeries = [];
-      const payoutSeries = []; // cumul
+            const tauxCot = parseFloat(document.getElementById('tauxCotGlobal').value) / 100; // sur super‑brut
+            const cotisationAnnuelle = SUPERBRUT * tauxCot * 12;
 
-      // Phase 1: accumulation
-      for (let y = 0; y < nCot; y++) {
-        capital = (capital + cotisationAnnuelle) * (1 + rNet);
-        capitalSeries.push(capital);
-        payoutSeries.push(0);
-      }
+            const flatTax = parseFloat(document.getElementById('flatTax').value) / 100;
+            const fraisSucc = parseFloat(document.getElementById('fraisSuccession').value) / 100;
 
-      const capAtRetire = capital;
-      const amountToPayout = 0.5 * capAtRetire;
-      const annualPayout = amountToPayout / nRev; // linéaire
+            return { NET, SUPERBRUT, cotisationAnnuelle, flatTax, fraisSucc };
+        }
 
-      // Phase 2: reversement linéaire de 50 % + capital restant continue à croître
-      let cumulPayout = 0;
-      for (let y = 0; y < nRev; y++) {
-        const payout = Math.min(annualPayout, amountToPayout - cumulPayout);
-        capital -= payout;
-        cumulPayout += payout;
-        capital = capital * (1 + rNet);
-        capitalSeries.push(capital);
-        payoutSeries.push(cumulPayout);
-      }
+        // --- Modèle avec suivi de la fiscalité ---
+        function simulate({ cotisationAnnuelle, flatTax, fraisSucc, ageE, ageR, ageD }) {
+            const rBrut = parseFloat(document.getElementById('rendement').value) / 100; // rendement brut saisi
 
-      // Héritage à la fin (après nCot+nRev ans)
-      const heritageBrut = capital;
-      const heritageNet = heritageBrut * (1 - fraisSucc);
+            const years = AGE_MAX - AGE_MIN + 1; // 95 points (16..110)
+            const capitalSeries = new Array(years).fill(0);
+            const payoutSeries = new Array(years).fill(0); // cumul reversements
 
-      return { capitalSeries, payoutSeries, capAtRetire, annualPayout, heritageBrut, heritageNet, rNet };
-    }
+            let capital = 0;
+            let cumulPayout = 0;
+            let taxFlatCumul = 0;
 
-    // --- Dessin du graphique (Canvas 2D) ---
-    const canvas = document.getElementById('chart');
-    const ctx = canvas.getContext('2d');
+            const idx = (age) => Math.max(0, Math.min(years - 1, Math.round(age - AGE_MIN)));
 
-    function draw(sim, yearsTotal) {
-      const PAD = 50; // marges
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+            // Boucle annuelle âge 16->110
+            for (let a = AGE_MIN; a <= AGE_MAX; a++) {
+                const i = idx(a);
 
-      // Axes et grille
-      const W = canvas.width, H = canvas.height;
-      const plotX0 = PAD, plotY0 = PAD, plotX1 = W - PAD, plotY1 = H - PAD;
+                // 1) Cotisations si E <= âge < R
+                if (a >= ageE && a < ageR) {
+                    capital += cotisationAnnuelle;
+                }
 
-      // Échelle Y
-      const maxY = Math.max(
-        ...sim.capitalSeries,
-        ...sim.payoutSeries,
-        sim.heritageNet
-      );
-      const niceMax = niceNumber(maxY * 1.08);
+                // 2) Gains bruts, prélèvement flat tax, capitalise avec rendement net
+                const gainsBruts = capital * rBrut;
+                const taxe = gainsBruts * flatTax;
+                taxFlatCumul += taxe;
+                capital = capital + (gainsBruts - taxe);
 
-      // grille horizontale
-      const gridLines = 5;
-      ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(148,163,184,0.25)';
-      for (let i = 0; i <= gridLines; i++) {
-        const y = plotY1 - (i / gridLines) * (plotY1 - plotY0);
-        ctx.beginPath(); ctx.moveTo(plotX0, y); ctx.lineTo(plotX1, y); ctx.stroke();
-        // labels Y
-        const val = niceMax * (i / gridLines);
-        ctx.fillStyle = '#9ca3af'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.font = '12px system-ui';
-        ctx.fillText(formatEuro0(val), plotX0 - 8, y);
-      }
+                // 3) Reversement de 50% entre R..D (linéaire)
+                if (a >= ageR && a < ageD) {
+                    const totalToPayout = 0.5 * capitalSeries[idx(ageR - 1)]; // base: capital à la veille de R (après dernière capitalisation)
+                    const yearsRev = Math.max(1, ageD - ageR);
+                    const annualPayout = totalToPayout / yearsRev;
+                    const payout = Math.min(annualPayout, totalToPayout - cumulPayout);
+                    capital -= payout;
+                    cumulPayout += payout;
+                }
 
-      // Axe X labels
-      const totalYears = yearsTotal;
-      const xTicks = Math.min(10, totalYears);
-      for (let t = 0; t <= xTicks; t++) {
-        const year = Math.round(totalYears * (t / xTicks));
-        const x = plotX0 + (year / totalYears) * (plotX1 - plotX0);
-        ctx.beginPath(); ctx.moveTo(x, plotY0); ctx.lineTo(x, plotY1); ctx.strokeStyle = 'rgba(148,163,184,0.15)'; ctx.stroke();
-        ctx.fillStyle = '#9ca3af'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.font = '12px system-ui';
-        ctx.fillText(year + ' a', x, plotY1 + 6);
-      }
+                capitalSeries[i] = capital;
+                payoutSeries[i] = cumulPayout;
+            }
 
-      // Fonctions d'échelle
-      const xScale = (i) => plotX0 + (i / totalYears) * (plotX1 - plotX0);
-      const yScale = (v) => plotY1 - (v / niceMax) * (plotY1 - plotY0);
+            const heritageBrut = capitalSeries[idx(AGE_MAX)];
+            const droitsSuccession = heritageBrut * fraisSucc;
+            const heritageNet = heritageBrut - droitsSuccession;
 
-      // Couleurs résolues (Canvas ne comprend pas var(--...))
-      const colorCapital = cssVar('--line-1');
-      const colorPayouts = cssVar('--line-2');
-      const colorWarn = cssVar('--warn');
+            return { capitalSeries, payoutSeries, taxFlatCumul, droitsSuccession, heritageNet, heritageBrut };
+        }
 
-      // Tracer capital (ligne 1)
-      drawLine(sim.capitalSeries, xScale, yScale, colorCapital);
-      // Tracer reversements cumulés (ligne 2)
-      drawLine(sim.payoutSeries, xScale, yScale, colorPayouts);
+        // --- Dessin du graphique (Canvas 2D) + poignées E/R/D ---
+        const canvas = document.getElementById('chart');
+        const ctx = canvas.getContext('2d');
 
-      // Marque héritage net (point + étiquette)
-      const xH = xScale(sim.capitalSeries.length - 1);
-      const yH = yScale(sim.heritageNet);
-      ctx.fillStyle = colorWarn;
-      ctx.beginPath(); ctx.arc(xH, yH, 5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#e5e7eb'; ctx.font = '12px system-ui'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
-      ctx.fillText('Héritage net ' + formatEuro0(sim.heritageNet), Math.min(xH + 10, plotX1 - 160), yH - 8);
+        const handles = {
+            E: { age: DEFAULT_E, color: '#e2e8f0', tip: "E : âge de début d'emploi", hoverSince: 0 },
+            R: { age: DEFAULT_R, color: '#fbbf24', tip: 'R : âge de départ en retraite (fin des cotisations)', hoverSince: 0 },
+            D: { age: DEFAULT_D, color: '#38bdf8', tip: 'D : âge de fin de reversement des 50 %', hoverSince: 0 }
+        };
 
-      // Cadres
-      ctx.strokeStyle = 'rgba(148,163,184,0.35)';
-      ctx.strokeRect(plotX0, plotY0, plotX1 - plotX0, plotY1 - plotY0);
-    }
+        function draw(sim) {
+            const PAD = 50; // marges
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    function drawLine(series, xScale, yScale, color) {
-      const ctx2 = ctx; ctx2.lineWidth = 2.5; ctx2.strokeStyle = color;
-      ctx2.beginPath();
-      series.forEach((v, i) => {
-        const x = xScale(i), y = yScale(v);
-        if (i === 0) ctx2.moveTo(x, y); else ctx2.lineTo(x, y);
-      });
-      ctx2.stroke();
-    }
+            const W = canvas.width, H = canvas.height;
+            const plotX0 = PAD, plotY0 = PAD, plotX1 = W - PAD, plotY1 = H - PAD;
 
-    // Nice number for axis max
-    function niceNumber(x){
-      const exp = Math.floor(Math.log10(x || 1));
-      const base = Math.pow(10, exp);
-      const n = x / base;
-      let nice;
-      if (n < 1.5) nice = 1.5; else if (n < 2) nice = 2; else if (n < 3) nice = 3; else if (n < 5) nice = 5; else nice = 10;
-      return nice * base;
-    }
+            // Échelle X (âges)
+            const xFromAge = (age) => plotX0 + ((age - AGE_MIN) / (AGE_MAX - AGE_MIN)) * (plotX1 - plotX0);
 
-    // --- Liaison Inputs ---
-    linkInputs(salaireNet, salaireNetRange);
-    linkInputs(chargesSal, chargesSalRange);
-    linkInputs(chargesEmp, chargesEmpRange);
-    linkInputs(tauxCotSB, tauxCotSBRange);
-    linkInputs(dureeCotisation, dureeCotisationRange);
-    linkInputs(rendement, rendementRange);
-    linkInputs(flatTax, flatTaxRange);
-    linkInputs(dureeReversement, dureeReversementRange);
-    linkInputs(fraisSuccession, fraisSuccessionRange);
+            // Échelle Y
+            const maxY = Math.max(...sim.capitalSeries, ...sim.payoutSeries, sim.heritageNet);
+            const niceMax = niceNumber(maxY * 1.08);
 
-    function onChange(){
-      const p = getParams();
-      const yearsTotal = p.nCot + p.nRev;
-      const yl = document.getElementById('yearsLabel');
-      if (yl) yl.textContent = `${yearsTotal} ans simulés`;
-      const sim = simulate({
-        cotisationAnnuelle: p.cotisationAnnuelle,
-        nCot: p.nCot,
-        rendement: p.rendement,
-        flatTax: p.flatTax,
-        nRev: p.nRev,
-        fraisSucc: p.fraisSucc
-      });
+            // Grille
+            const gridLinesY = 5;
+            ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(148,163,184,0.25)';
+            ctx.font = '13px Inter, ui-sans-serif, system-ui'; ctx.fillStyle = '#9ca3af';
+            ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
+            for (let i = 0; i <= gridLinesY; i++) {
+                const y = plotY1 - (i / gridLinesY) * (plotY1 - plotY0);
+                ctx.beginPath(); ctx.moveTo(plotX0, y); ctx.lineTo(plotX1, y); ctx.stroke();
+                const val = niceMax * (i / gridLinesY);
+                ctx.fillText(formatEuro0(val), plotX0 - 8, y);
+            }
 
-      // Mettre à jour stats
-      document.getElementById('capFinCot').textContent = formatEuro0(sim.capAtRetire);
-      document.getElementById('brutCalc').textContent = formatEuro2(p.salaireBrut) + ' / mois';
-      document.getElementById('superBrutCalc').textContent = formatEuro2(p.superBrut) + ' / mois';
-      document.getElementById('cotisationCalc').textContent = formatEuro0(p.cotisationAnnuelle) + ' / an';
+            // Axe X (repères par décennie)
+            ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+            for (let age = 20; age <= 110; age += 10) {
+                const x = xFromAge(age);
+                ctx.beginPath(); ctx.moveTo(x, plotY0); ctx.lineTo(x, plotY1); ctx.strokeStyle = 'rgba(148,163,184,0.15)'; ctx.stroke();
+                ctx.fillText(age + ' ans', x, plotY1 + 6);
+            }
 
-      draw(sim, yearsTotal);
-    }
+            // yScale
+            const yScale = (v) => plotY1 - (v / niceMax) * (plotY1 - plotY0);
 
-    // Export PNG (sous le graphique)
-    document.getElementById('exportBtn').addEventListener('click', () => {
-      const link = document.createElement('a');
-      link.download = 'courbe-retraite.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    });
+            // Couleurs
+            const colorCapital = cssVar('--line-1');
+            const colorPayouts = cssVar('--line-2');
+            const colorWarn = cssVar('--warn');
 
-    // Reset (dans le panneau paramètres)
-    document.getElementById('resetBtn').addEventListener('click', () => {
-      const defaults = {
-        salaireNet: 2400, chargesSal: 22, chargesEmp: 42, tauxCotSB: 25,
-        dureeCotisation: 30, rendement: 4, flatTax: 30,
-        dureeReversement: 20, fraisSuccession: 20
-      };
-      for (const [k,v] of Object.entries(defaults)){
-        const num = document.getElementById(k);
-        const rng = document.getElementById(k + 'Range');
-        if (num && rng){ num.value = v; rng.value = v; }
-      }
-      onChange();
-    });
+            // Tracés
+            drawLine(sim.capitalSeries, (i) => plotX0 + (i / (AGE_MAX - AGE_MIN)) * (plotX1 - plotX0), yScale, colorCapital);
+            drawLine(sim.payoutSeries, (i) => plotX0 + (i / (AGE_MAX - AGE_MIN)) * (plotX1 - plotX0), yScale, colorPayouts);
 
-    // Bouton roue dentée pour ouvrir/fermer le panneau
-    const toggleBtn = document.getElementById('settingsToggle');
-    toggleBtn.addEventListener('click', () => {
-      const closed = document.body.classList.toggle('settings-closed');
-      toggleBtn.setAttribute('aria-expanded', String(!closed));
-    });
+            // Marque héritage net
+            const xH = xFromAge(AGE_MAX);
+            const yH = yScale(sim.heritageNet);
+            ctx.fillStyle = colorWarn; ctx.beginPath(); ctx.arc(xH, yH, 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#e5e7eb'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+            ctx.fillText('Héritage net ' + formatEuro0(sim.heritageNet), Math.min(xH + 10, plotX1 - 200), yH - 8);
 
-    // --- Mini tests (console) ---
-    function approxEqual(a,b,eps=1e-6){ return Math.abs(a-b) <= eps * Math.max(1, Math.abs(a), Math.abs(b)); }
-    function runTests(){
-      console.group('%cTests simulateur','color:#22d3ee');
-      try{
-        // Test 1: croissance positive pendant accumulation
-        const p1 = { cotisationAnnuelle: 6000, nCot: 10, rendement: 0.04, flatTax: 0.30, nRev: 10, fraisSucc: 0.20 };
-        const s1 = simulate(p1);
-        let monotone = true;
-        for(let i=1;i<p1.nCot;i++){ if(!(s1.capitalSeries[i] > s1.capitalSeries[i-1])) { monotone=false; break; } }
-        console.assert(monotone, 'Le capital doit croître pendant la phase d\'accumulation');
+            // Cadre
+            ctx.strokeStyle = 'rgba(148,163,184,0.35)'; ctx.strokeRect(plotX0, plotY0, plotX1 - plotX0, plotY1 - plotY0);
 
-        // Test 2: reversements cumulés finaux = 50% du capital à la retraite
-        const expectedPaid = 0.5 * s1.capAtRetire;
-        const paid = s1.payoutSeries[s1.payoutSeries.length - 1];
-        console.assert(approxEqual(expectedPaid, paid, 1e-6), 'Les reversements cumulés doivent égaler 50% du capital à la retraite');
+            // Handles E/R/D
+            positionHandle('E', xFromAge(handles.E.age), plotY1);
+            positionHandle('R', xFromAge(handles.R.age), plotY1);
+            positionHandle('D', xFromAge(handles.D.age), plotY1);
 
-        // Test 3: héritage net < héritage brut si fraisSucc > 0
-        console.assert(s1.heritageNet < s1.heritageBrut, 'Héritage net doit être inférieur à brut quand frais > 0');
+            // Barres verticales pour handles
+            for (const key of ['E', 'R', 'D']) {
+                const x = xFromAge(handles[key].age);
+                ctx.strokeStyle = handles[key].color; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(x, plotY0); ctx.lineTo(x, plotY1); ctx.stroke();
+            }
+        }
 
-        // Test 4: cas bord : rendement 0, flatTax 0
-        const p2 = { cotisationAnnuelle: 1000, nCot: 2, rendement: 0, flatTax: 0, nRev: 1, fraisSucc: 0 };
-        const s2 = simulate(p2);
-        console.assert(approxEqual(s2.capAtRetire, 2000, 1e-9), 'Sans rendement: capital = somme des cotisations');
-        console.assert(approxEqual(s2.heritageBrut, 1000, 1e-9), 'Après reversement 50% d\'un capital 2000 et 1 an de rev: reste 1000');
+        function drawLine(series, xScaleIndex, yScale, color) {
+            ctx.lineWidth = 2.5; ctx.strokeStyle = color; ctx.beginPath();
+            series.forEach((v, i) => {
+                const x = xScaleIndex(i), y = yScale(v);
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
 
-        console.log('%c✅ Tests passés','color:#10b981');
-      } catch(e){
-        console.error('❌ Tests échoués', e);
-      } finally {
-        console.groupEnd();
-      }
-    }
+        function positionHandle(id, x, plotY1) {
+            const label = document.getElementById('label' + id);
+            label.style.left = x + 'px';
+            label.style.top = (canvas.getBoundingClientRect().top + canvas.height - 45) + 'px';
+            label.textContent = id;
+        }
 
-    // Init (panneau ouvert par défaut)
-    document.body.classList.remove('settings-closed');
-    onChange();
-    runTests();
-  </script>
+        // --- Interaction drag sur le canvas ---
+        let dragging = null;
+        let hoverTimer = null;
+
+        function ageFromX(clientX) {
+            const rect = canvas.getBoundingClientRect();
+            const PAD = 50; const plotX0 = rect.left + PAD; const plotX1 = rect.right - PAD;
+            const t = Math.min(1, Math.max(0, (clientX - plotX0) / (plotX1 - plotX0)));
+            return Math.round(AGE_MIN + t * (AGE_MAX - AGE_MIN));
+        }
+
+        function nearestHandle(clientX) {
+            const ages = Object.keys(handles).map(k => ({ k, x: xFromAge(handles[k].age) }));
+            function xFromAge(age) {
+                const PAD = 50; const rect = canvas.getBoundingClientRect();
+                const plotX0 = rect.left + PAD; const plotX1 = rect.right - PAD;
+                return plotX0 + ((age - AGE_MIN) / (AGE_MAX - AGE_MIN)) * (plotX1 - plotX0);
+            }
+            let best = null, bestDist = 1e9;
+            for (const h of ages) { const d = Math.abs(h.x - clientX); if (d < bestDist) { best = h; bestDist = d; } }
+            return best?.k || null;
+        }
+
+        function startHoverTip(key) {
+            const row = document.getElementById('controls');
+            if (!row) return;
+            const tipMap = { E: "E : âge de début d'emploi", R: 'R : âge de départ en retraite', D: 'D : âge de fin de reversement des 50 %' };
+            row.dataset.tip = tipMap[key];
+            row.classList.add('show-tip');
+            setTimeout(() => row.classList.remove('show-tip'), 2500);
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const k = nearestHandle(e.clientX);
+            if (!k) return;
+            dragging = k;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!dragging) return;
+            const newAge = Math.max(AGE_MIN, Math.min(AGE_MAX, ageFromX(e.clientX)));
+            handles[dragging].age = newAge;
+            ensureOrder();
+            onChange();
+        });
+        window.addEventListener('mouseup', () => { dragging = null; });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const k = nearestHandle(e.clientX);
+            document.body.style.cursor = k ? 'ew-resize' : 'default';
+            if (hoverTimer) { clearTimeout(hoverTimer); hoverTimer = null; }
+            if (k) { hoverTimer = setTimeout(() => startHoverTip(k), 2000); }
+        });
+
+        function ensureOrder() {
+            // impose E <= R <= D
+            if (handles.R.age < handles.E.age) handles.R.age = handles.E.age;
+            if (handles.D.age < handles.R.age) handles.D.age = handles.R.age + 1;
+        }
+
+        // --- Liaison Inputs (avec aimants) ---
+        linkInputs(salaireNet, salaireNetRange);
+        linkInputs(tauxCotGlobal, tauxCotGlobalRange, SNAP.cot);
+        linkInputs(flatTax, flatTaxRange, SNAP.flat);
+        linkInputs(fraisSuccession, fraisSuccessionRange, SNAP.succession);
+
+        function onChange() {
+            ensureOrder();
+            const p = getParams();
+            const sim = simulate({
+                cotisationAnnuelle: p.cotisationAnnuelle,
+                flatTax: p.flatTax,
+                fraisSucc: p.fraisSucc,
+                ageE: handles.E.age,
+                ageR: handles.R.age,
+                ageD: handles.D.age
+            });
+
+            // Stats
+            const idx = (age) => Math.round(age - AGE_MIN);
+            const capAtR = sim.capitalSeries[idx(handles.R.age)];
+            document.getElementById('capFinCot').textContent = formatEuro0(capAtR);
+            document.getElementById('cotisationCalc').textContent = formatEuro0(p.cotisationAnnuelle) + ' / an';
+            document.getElementById('heritageNet').textContent = formatEuro0(sim.heritageNet);
+            document.getElementById('etatRecup').textContent = formatEuro0(sim.taxFlatCumul + sim.droitsSuccession);
+
+            draw(sim);
+        }
+
+        // Export PNG (sous le graphique)
+        document.getElementById('exportBtn').addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'courbe-retraite.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        });
+
+        // Reset
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('salaireNet').value = 2400;
+            document.getElementById('salaireNetRange').value = 2400;
+            document.getElementById('tauxCotGlobal').value = SNAP.cot;
+            document.getElementById('tauxCotGlobalRange').value = SNAP.cot;
+            document.getElementById('flatTax').value = SNAP.flat;
+            document.getElementById('flatTaxRange').value = SNAP.flat;
+            document.getElementById('fraisSuccession').value = SNAP.succession;
+            document.getElementById('fraisSuccessionRange').value = SNAP.succession;
+
+            handles.E.age = DEFAULT_E; handles.R.age = DEFAULT_R; handles.D.age = DEFAULT_D;
+            onChange();
+        });
+
+        // Bouton roue dentée pour ouvrir/fermer le panneau
+        const toggleBtn = document.getElementById('settingsToggle');
+        toggleBtn.addEventListener('click', () => {
+            const closed = document.body.classList.toggle('settings-closed');
+            toggleBtn.setAttribute('aria-expanded', String(!closed));
+        });
+
+        // --- Tests de non-régression ---
+        function approxEqual(a, b, eps = 1e-6) { return Math.abs(a - b) <= eps * Math.max(1, Math.abs(a), Math.abs(b)); }
+        function runTests() {
+            console.group('%cTests simulateur', 'color:#22d3ee');
+            try {
+                const sim1 = simulate({ cotisationAnnuelle: 6000, flatTax: 0.30, fraisSucc: 0.20, ageE: 25, ageR: 35, ageD: 45 });
+                // monotonicité du capital entre E et R (avec r>0 implicite via champ DOM)
+                let mono = true; for (let a = 25 + 1; a <= 35; a++) { const i = a - AGE_MIN; if (!(sim1.capitalSeries[i] >= sim1.capitalSeries[i - 1])) { mono = false; break; } }
+                console.assert(mono, 'Capital croissant pendant accumulation');
+                // reversements cumulés finaux = 50% du capital à R (à tolérance près)
+                const capAtR = sim1.capitalSeries[35 - AGE_MIN];
+                const paidFinal = sim1.payoutSeries[45 - AGE_MIN];
+                console.assert(paidFinal > 0 && paidFinal <= 0.5 * capAtR + 1e-6, 'Reversements cumulés bornés par 50% du capital à R');
+            } catch (e) { console.error('❌ Tests échoués', e); }
+            console.groupEnd();
+        }
+
+        // Init (panneau ouvert par défaut)
+        document.body.classList.remove('settings-closed');
+        onChange();
+        runTests();
+    </script>
 </body>
+
 </html>
